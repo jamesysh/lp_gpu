@@ -1,0 +1,54 @@
+m_iNumThreads 24
+m_fStartTime 0
+m_fEndTime 1
+m_fWriteTimeInterval 1
+m_fCFLCoeff 0.5
+m_iDimension 2
+m_iFluidObjNum 1
+m_vFluidObjectNames0 yee2d
+m_vFluidObjectStateNames0 yee2dstate
+m_iBoundaryObjNum 1
+m_vBoundaryObjectNames0 yee2dsolidboundary
+m_vBoundaryObjectTypes0 solid
+m_iRandomDirSplitOrder 0
+m_iLPFOrder 1
+m_iEOSChoice 1
+m_fGamma 1.4
+m_fPinf 0
+m_fEinf 0
+m_fInitParticleSpacing 0.005
+m_fGravity 0
+m_iUseLimiter 0
+m_iDensityEstimatorType 0
+m_fInitialPerturbation 0
+m_iFixParticles 0
+m_iOutputError 1
+m_sExactSolutionName yee
+m_sAuxiliaryOutput none
+m_iPelletDistribution 0
+m_iWriteStep 0
+m_fTimesNeiSearchRadius 4
+m_fTimesCapacity 3
+m_fAdditionalCapacity 200000
+m_fNeiSearchRadius 0.02
+m_iMaxNeighbourNum 177
+m_iMaxNeighbourNumInOneDir 88
+m_iNumRow2ndOrder 36
+m_iNumRow1stOrder 3
+m_iNumCol2ndOrder 5
+m_iNumCol1stOrder 2
+m_fInvalidPressure 0
+m_fInvalidDensity 0
+m_iTreeDepth 7
+m_fContactLength 0.0055
+m_vFluidBoundingBox(0):
+m_fXmin=-5
+m_fXmax=5
+m_fYmin=-5
+m_fYmax=5
+m_fZmin=0
+m_fZmax=0
+-----------------
+m_iFluidNum 3627594
+m_iCapacity 11082782
+m_iFluidStartIndex 0

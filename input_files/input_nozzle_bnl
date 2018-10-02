@@ -1,0 +1,35 @@
+24				number of threads
+0				start time
+8e-5				end time
+1e-6				write time interval
+0.25				CFL coefficient
+3				dimension (2 or 3)
+1				number of fluid objects
+nozzle3d				geometry for fluid object0
+nozzlestate			intiial condition for fluid object0
+4				number of boundary conditions
+nozzle3dinflowfixpressureboundary	boundary condition0 (only meaningful for non-free boundary condition)
+inflow				type of boundary condition0 (free, solid, periodic, inflow, outflow)
+nozzle3dbnlsolidboundary           boundary condition1
+solid                           type of boundary condition1
+nozzle3doutflowboundary         boundary condition2
+outflow                         type of boundary condition2
+free				boundary condition3
+free				type of boundary condition3
+1				use random order for direction splittig (1) or not(0)
+1				order of numerical scheme: 1: upwind method, 2: Lax-Wendroff method
+1				EOS choice: 1:polytropic 2:Stiffened polytropic
+1.4				EOS parameter: gamma
+0				EOS parameter: pinf (only meaningful for stiffened polytropic eos)
+0.				EOS parameter: einf (only meaningful for stiffened polytropic eos)
+0.05e-3				initial particle spacing
+0.				gravity
+0				switch to upwind method on local extremal points (1) or not(0) (only meaningful for Lax-Wendroff method with moving particles)
+0				Density estimator: 0: PDE, 1: SPH, 3: PDE with switch to SPH at discontinuity
+1.				amount of initial perturbation (unit: initial particle spacing)
+0				use fixed particles (1) or moving particles(0)
+0				compute error compared with exact solution (1) or not (0)
+none				name of exact solution to compare with (simplewave, shocktube, sod, gresho, yee, noh)
+nozzle                  	auxiliary output type (nozzle, region, radial, tvplot, pelletablation)
+0				distribution of pellet (0: no pellet)
+
