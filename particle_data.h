@@ -393,6 +393,15 @@ public:
 
         const int* const getNeighbourList() const {return m_vNeighbourList;}
 
+
+    //DATA COPY BETWEEN CPU AND GPU
+    void cpyFromHostToDevice();
+    void cpyFromDeviceToHost();
+
+
+
+
+
 private:
 	
 	friend class HyperbolicLPSolver; ///< To facilitate access of data in this class for HyperbolicLPSolver

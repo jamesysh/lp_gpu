@@ -180,6 +180,9 @@ HyperbolicLPSolver::HyperbolicLPSolver(const Initializer& init, ParticleData* pD
 
     cudaMalloc((void**)&d_A_LS,sizeof(double*)*capacity);
     A_temp = new double*[capacity];
+    #ifdef _OPENMP
+    #pragma omp parallel for 
+    #endif
     for(int i=0;i<capacity;i++){
         cudaMalloc((void**)&A_temp[i],sizeof(double)*10*numNeighbourInOneDir);
     }
@@ -189,6 +192,9 @@ HyperbolicLPSolver::HyperbolicLPSolver(const Initializer& init, ParticleData* pD
     
     cudaMalloc((void**)&d_Tau,capacity*sizeof(double*));
     Tau_temp = new double*[capacity];
+    #ifdef _OPENMP
+    #pragma omp parallel for 
+    #endif
     for(int i=0;i<capacity;i++){
         cudaMalloc((void**)&Tau_temp[i],sizeof(double)*10);
     }
@@ -199,6 +205,9 @@ HyperbolicLPSolver::HyperbolicLPSolver(const Initializer& init, ParticleData* pD
    
     cudaMalloc((void**)&d_B_LS,sizeof(double*)*capacity);
     B_temp = new double*[capacity];
+    #ifdef _OPENMP
+    #pragma omp parallel for 
+    #endif
     for(int i=0;i<capacity;i++){
         cudaMalloc((void**)&B_temp[i],sizeof(double)*numNeighbourInOneDir);
     }
@@ -206,6 +215,9 @@ HyperbolicLPSolver::HyperbolicLPSolver(const Initializer& init, ParticleData* pD
     
     cudaMalloc((void**)&d_result,capacity*sizeof(double*));
     result_temp = new double*[capacity];
+    #ifdef _OPENMP
+    #pragma omp parallel for 
+    #endif
     for(int i=0;i<capacity;i++){
         cudaMalloc((void**)&result_temp[i],sizeof(double)*10);
     }
@@ -218,6 +230,7 @@ HyperbolicLPSolver::HyperbolicLPSolver(const Initializer& init, ParticleData* pD
             printf("Error occurs when setting up lp_solver!!! MSG: %s\n",cudaGetErrorString(err));
             assert(false);
         }
+        cout<<"-----------------allocate end-----------------------"<<endl;
 }
 
 HyperbolicLPSolver::~HyperbolicLPSolver() {
@@ -232,6 +245,9 @@ HyperbolicLPSolver::~HyperbolicLPSolver() {
     cudaFree(d_info);
     cudaFree(d_result);
     cudaFree(d_particleOrder);
+    #ifdef _OPENMP
+    #pragma omp parallel for 
+    #endif
     for(int i=0;i<capacity;i++){
         cudaFree(A_temp[i]);
         cudaFree(B_temp[i]);
@@ -239,7 +255,7 @@ HyperbolicLPSolver::~HyperbolicLPSolver() {
         cudaFree(Tau_temp);
 
     }
-
+cout<<"memory release end-------------------------------"<<endl;
 
 }
 

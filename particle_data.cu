@@ -289,10 +289,13 @@ ParticleData::ParticleData(Initializer& init) {
 		cerr<<"std::bad_alloc caught during initialization: "<<ba.what()<<endl;
 		assert(false);
 	}
+
 //----------------------------GPU ARRAY MEMORY ALLOCATION----------------------------------------
         cudaMalloc((void**)&d_m_vNeighbourListRightSize,sizeof(int)*m_iCapacity);
         cudaMalloc((void**)&d_m_vNeighbourListLeftSize,sizeof(int)*m_iCapacity);
         cudaMalloc((void**)&d_m_vNeighbourListNorthSize,sizeof(int)*m_iCapacity);
+        
+    cout<<"arraived here!!!"<<endl;
         cudaMalloc((void**)&d_m_vNeighbourListSouthSize,sizeof(int)*m_iCapacity);
         cudaMalloc((void**)&d_m_vPressure,sizeof(double)*m_iCapacity);        
         cudaMalloc((void**)&d_m_vVolume,sizeof(double)*m_iCapacity);
@@ -303,6 +306,7 @@ ParticleData::ParticleData(Initializer& init) {
         cudaMalloc((void**)&d_m_vTemp2Pressure,sizeof(double)*m_iCapacity);
         cudaMalloc((void**)&d_m_vTemp2Volume,sizeof(double)*m_iCapacity);
         cudaMalloc((void**)&d_m_vTemp2SoundSpeed,sizeof(double)*m_iCapacity);
+
         cudaMalloc((void**)&d_m_vLPFOrderRight,sizeof(int)*m_iCapacity);
         cudaMalloc((void**)&d_m_vLPFOrderLeft,sizeof(int)*m_iCapacity);
         cudaMalloc((void**)&d_m_vLPFOrderNorth,sizeof(int)*m_iCapacity);
@@ -319,7 +323,7 @@ ParticleData::ParticleData(Initializer& init) {
         cudaMalloc((void**)&d_m_vNeighbourListLeft,sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir);
         cudaMalloc((void**)&d_m_vNeighbourListNorth,sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir);
         cudaMalloc((void**)&d_m_vNeighbourListSouth,sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir);
-        
+cout<<"reach here!!!"<<endl;        
 
         if(m_iDimension == 3){
         
@@ -563,6 +567,79 @@ void ParticleData::augmentAllDataArrays(size_t newCapacity) {
 
 
 }
+
+void ParticleData::cpyFromHostToDevice(){
+    cudaMemcpy(d_m_vNeighbourListRight,m_vNeighbourListRight,sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir,cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vNeighbourListLeft, m_vNeighbourListLeft, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vNeighbourListNorth,m_vNeighbourListNorth, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vNeighbourListSouth,m_vNeighbourListSouth, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vNeighbourListRightSize, m_vNeighbourListRightSize, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vNeighbourListLeftSize, m_vNeighbourListLeftSize, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vNeighbourListNorthSize, m_vNeighbourListNorthSize, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vNeighbourListSouthSize, m_vNeighbourListSouthSize, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vPressure, m_vPressure, sizeof(double)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vVolume, m_vVolume, sizeof(double)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vSoundSpeed, m_vSoundSpeed, sizeof(double)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vVelocityU, m_vVelocityU, sizeof(double)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vVelocityV, m_vVelocityV, sizeof(double)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vLPFOrderRight, m_vLPFOrderRight, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vLPFOrderLeft, m_vLPFOrderLeft, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vLPFOrderNorth, m_vLPFOrderNorth, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vLPFOrderSouth, m_vLPFOrderSouth, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vPositionX, m_vPositionX, sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vPositionY,m_vPositionY,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+    if(m_iDimension == 3){
+ 
+    cudaMemcpy(d_m_vNeighbourListUp, m_vNeighbourListUp, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vNeighbourListDown, m_vNeighbourListDown, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vNeighbourListUpSize, m_vNeighbourListUpSize, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vNeighbourListDownSize, m_vNeighbourListDownSize, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vVelocityW, m_vVelocityW, sizeof(double)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vLPFOrderUp, m_vLPFOrderUp, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vLPFOrderDown, m_vLPFOrderDown, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_m_vPositionZ, m_vPositionZ, sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+
+    
+    }
+}
+
+
+void ParticleData::cpyFromDeviceToHost(){
+    cudaMemcpy(m_vNeighbourListRight,d_m_vNeighbourListRight,sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir,cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vNeighbourListLeft, d_m_vNeighbourListLeft, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vNeighbourListNorth,d_m_vNeighbourListNorth, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vNeighbourListSouth,d_m_vNeighbourListSouth, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vNeighbourListRightSize, d_m_vNeighbourListRightSize, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vNeighbourListLeftSize, d_m_vNeighbourListLeftSize, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vNeighbourListNorthSize, d_m_vNeighbourListNorthSize, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vNeighbourListSouthSize, d_m_vNeighbourListSouthSize, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vPressure, d_m_vPressure, sizeof(double)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vVolume, d_m_vVolume, sizeof(double)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vSoundSpeed, d_m_vSoundSpeed, sizeof(double)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vVelocityU, d_m_vVelocityU, sizeof(double)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vVelocityV, d_m_vVelocityV, sizeof(double)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vLPFOrderRight, d_m_vLPFOrderRight, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vLPFOrderLeft, d_m_vLPFOrderLeft, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vLPFOrderNorth, d_m_vLPFOrderNorth, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vLPFOrderSouth, d_m_vLPFOrderSouth, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vPositionX, d_m_vPositionX, sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vPositionY,d_m_vPositionY,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+    if(m_iDimension == 3){
+ 
+    cudaMemcpy(m_vNeighbourListUp, d_m_vNeighbourListUp, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vNeighbourListDown, d_m_vNeighbourListDown, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vNeighbourListUpSize, d_m_vNeighbourListUpSize, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vNeighbourListDownSize, d_m_vNeighbourListDownSize, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vVelocityW, d_m_vVelocityW, sizeof(double)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vLPFOrderUp, d_m_vLPFOrderUp, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vLPFOrderDown, d_m_vLPFOrderDown, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_vPositionZ, d_m_vPositionZ, sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+
+    
+    }
+}
+
+
 
 ParticleData::~ParticleData() {
   

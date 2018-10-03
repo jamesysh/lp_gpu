@@ -16,7 +16,7 @@ m_iEOSChoice 1
 m_fGamma 1.4
 m_fPinf 0
 m_fEinf 0
-m_fInitParticleSpacing 0.005
+m_fInitParticleSpacing 0.2
 m_fGravity 0
 m_iUseLimiter 0
 m_iDensityEstimatorType 0
@@ -30,7 +30,7 @@ m_iWriteStep 0
 m_fTimesNeiSearchRadius 4
 m_fTimesCapacity 3
 m_fAdditionalCapacity 200000
-m_fNeiSearchRadius 0.02
+m_fNeiSearchRadius 0.8
 m_iMaxNeighbourNum 177
 m_iMaxNeighbourNumInOneDir 88
 m_iNumRow2ndOrder 36
@@ -40,7 +40,7 @@ m_iNumCol1stOrder 2
 m_fInvalidPressure 0
 m_fInvalidDensity 0
 m_iTreeDepth 7
-m_fContactLength 0.0055
+m_fContactLength 0.22
 m_vFluidBoundingBox(0):
 m_fXmin=-5
 m_fXmax=5
@@ -49,6 +49,6 @@ m_fYmax=5
 m_fZmin=0
 m_fZmax=0
 -----------------
-m_iFluidNum 3627594
-m_iCapacity 11082782
+m_iFluidNum 2268
+m_iCapacity 206804
 m_iFluidStartIndex 0
