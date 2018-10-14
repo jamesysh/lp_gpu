@@ -31,6 +31,11 @@
 #include <cassert>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
+#include <magma_lapack.h>
+#include <magma_v2.h>
+#include "matrix_build.h"
+
 class Initializer;
 class ParticleData;
 class NeighbourSearcher;
@@ -216,7 +221,7 @@ private:
 	std::vector<std::size_t> m_vMirrorIndex; ///< The index of the corresponding fluid particle of a mirror particle
 	//-------------------------------------------------------------------------------------
 
-    //---------------------GPU ARRAYS NEEDED IN COMPUTATION----------------------------------
+ //---------------------GPU ARRAYS NEEDED IN COMPUTATION----------------------------------
     double** d_A_LS;   //Matrices of LS linear system, stored in gpu
     double** A_temp;   //A_temp is cpu pointer but its elements are gpu pointers
     double* d_distance; 
@@ -230,10 +235,23 @@ private:
     double** d_result;//Store the result of LS problem
     double** result_temp;
     
+    double* d_vel_d_0;
+    double* d_vel_dd_0;
+    double* d_p_d_0;
+    double* d_p_dd_0;
+    
+    double* d_vel_d_1;
+    double* d_vel_dd_1;
+    double* d_p_d_1;
+    double* d_p_dd_1;
+
+
     int* d_particleOrder; //Store the order of particles in computation
+    int* d_valueAssigned; //If value is assigned, it will be 0.
 
-    int capacity;//copy from partical data
+    int capacity = 50000;//copy from partical data
 
+    int* d_warningCount;
 
 
 	//-------------------------------------Methods-----------------------------------------
@@ -547,5 +565,22 @@ void (HyperbolicLPSolver::*computeA) (size_t, const int *, const int*, size_t, s
 	void updateStatesByLorentzForce();
 
 	void computeIntegralSpherical();
+
+//GPU functions
+   void computeSpatialDer_gpu(int dir, int offset,  void (HyperbolicLPSolver::*computeA) ( const int *,
+const int*, int, int, int),
+	const double* inPressure, const double* inVelocity,
+	const int *neighbourList, const int *neighbourListSize,int additional,
+	int* LPFOrder, double* vel_d, double* vel_dd, double* p_d, double* p_dd);
+
+    void computeA3D_cpu( const int *neighbourList,  const int* LPFOrder, int numRow, int startIndex, int numComputingPrticle);
+    void computeA2D_cpu(const int *neighbourList, const int*  LPFOrder,  int numRow,   int startIndex, int numComputingParticle); 
+    void setLPFOrderPointers_gpu(int dir, int** LPFOrder0, int** LPFOrder1, std::vector<int*>& LPFOrderOther); 
+    void setInAndOutDataPointers_gpu(int phase, int dir,
+	const double** inVelocity, const double** inPressure, const double** inVolume, const double** inSoundSpeed, 
+	double** outVelocity, double** outPressure, double** outVolume, double** outSoundSpeed); 
+    void setNeighbourListPointers_gpu(int dir, const int **neiList0, const int **neiList1, // output
+	const int **neiListSize0, const int **neiListSize1);
+
 };
 #endif

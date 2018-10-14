@@ -4,7 +4,6 @@
 #include "particle_viewer.h"
 #include "lp_solver.h"
 #include "time_controller.h"
-
 #include <iostream>
 #include <cassert>
 #include <sys/stat.h> // mkdir()
@@ -85,6 +84,7 @@ int main(int argc, const char* argv[]) {
 	ParticleData* pData = new ParticleData(*init);
 #ifdef LP_DEBUG
 	cout<<"ParticleSolver"<<endl;
+	
 #endif	
 	//TODO: do this in command line using eg. -all -fluid or in input file as options entered by user
 	//const string outputfileNameAll = string(argv[4]) + "/out";		
@@ -94,12 +94,14 @@ int main(int argc, const char* argv[]) {
         cout<<"ParticleSolver1"<<endl;
 #endif	
 	NeighbourSearcher* neiSearcher;
-#ifdef LP_DEBUG
-        cout<<"ParticleSolver2"<<endl;
+#ifdef LP_DEBUG 
+		
+	cout<<"ParticleSolver2"<<endl;
 #endif	
 	LPSolver* lpSolver;
 #ifdef LP_DEBUG
-        cout<<"ParticleSolver3"<<endl;
+       
+	 cout<<"ParticleSolver3"<<endl;
 #endif	
 	if(init->getDimension() == 1) {
 		cout<<"One dimension code has been removed, please check removed_code.cpp for more information"<<endl;

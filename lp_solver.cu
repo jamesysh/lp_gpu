@@ -16,6 +16,7 @@
 #include <iostream>
 #include <memory> // shared_ptr
 #include <iomanip> // setw
+#include "matrix_build.h"
 using namespace std;
 
 
@@ -174,10 +175,13 @@ HyperbolicLPSolver::HyperbolicLPSolver(const Initializer& init, ParticleData* pD
         m_fNeighbourTime=0;
         m_fBoundaryTime=0;
 	m_iCount=0;
-// --------------------GPU ARRAYS MEMORY ALLOCATION--------------------------------
-    capacity = m_pParticleData->m_iCapacity;
-    int numNeighbourInOneDir = m_pParticleData->m_iMaxNeighbourNumInOneDir;
 
+// --------------------GPU ARRAYS MEMORY ALLOCATION--------------------------------
+    int numNeighbourInOneDir = m_pParticleData->m_iMaxNeighbourNumInOneDir;
+    int m_iCapacity = m_pParticleData->m_iCapacity;
+    
+    cudaMalloc((void**)&d_valueAssigned,sizeof(int)*m_iCapacity);
+    cudaMemset(d_valueAssigned, 0, sizeof(int)*m_iCapacity); 
     cudaMalloc((void**)&d_A_LS,sizeof(double*)*capacity);
     A_temp = new double*[capacity];
     #ifdef _OPENMP
@@ -200,7 +204,8 @@ HyperbolicLPSolver::HyperbolicLPSolver(const Initializer& init, ParticleData* pD
     }
 
     cudaMemcpy(d_Tau, Tau_temp, sizeof(double*)*capacity, cudaMemcpyHostToDevice);  
-  
+ 
+
     cudaMalloc((void**)&d_info,capacity*sizeof(int));
    
     cudaMalloc((void**)&d_B_LS,sizeof(double*)*capacity);
@@ -224,17 +229,29 @@ HyperbolicLPSolver::HyperbolicLPSolver(const Initializer& init, ParticleData* pD
 
     cudaMemcpy(d_result, result_temp, sizeof(double*)*capacity, cudaMemcpyHostToDevice);  
    
-    cudaMalloc((void**)&d_particleOrder,sizeof(int)*capacity);
+    cudaMalloc((void**)&d_vel_d_0,sizeof(double)*m_iCapacity);
+    cudaMalloc((void**)&d_vel_dd_0,sizeof(double)*m_iCapacity);
+    cudaMalloc((void**)&d_p_d_0,sizeof(double)*m_iCapacity);
+    cudaMalloc((void**)&d_p_dd_0,sizeof(double)*m_iCapacity);
+    
+    cudaMalloc((void**)&d_vel_d_1,sizeof(double)*m_iCapacity);
+    cudaMalloc((void**)&d_vel_dd_1,sizeof(double)*m_iCapacity);
+    cudaMalloc((void**)&d_p_d_1,sizeof(double)*m_iCapacity);
+    cudaMalloc((void**)&d_p_dd_1,sizeof(double)*m_iCapacity);
+    cudaMalloc((void**)&d_warningCount,sizeof(int));
+    
     cudaError err = cudaGetLastError();
         if(cudaSuccess != err){
             printf("Error occurs when setting up lp_solver!!! MSG: %s\n",cudaGetErrorString(err));
             assert(false);
         }
         cout<<"-----------------allocate end-----------------------"<<endl;
+
 }
 
 HyperbolicLPSolver::~HyperbolicLPSolver() {
 	delete m_pEOS;
+
     delete[] A_temp;
     delete[] B_temp;
     delete[] Tau_temp;
@@ -244,7 +261,17 @@ HyperbolicLPSolver::~HyperbolicLPSolver() {
     cudaFree(d_Tau);
     cudaFree(d_info);
     cudaFree(d_result);
-    cudaFree(d_particleOrder);
+    cudaFree(d_valueAssigned);
+    cudaFree(d_vel_d_0);
+    cudaFree(d_vel_dd_0);
+    cudaFree(d_p_d_0);
+    cudaFree(d_p_dd_0);
+    cudaFree(d_vel_d_1);
+    cudaFree(d_vel_dd_1);
+    cudaFree(d_p_d_1);
+    cudaFree(d_p_dd_1);
+
+   
     #ifdef _OPENMP
     #pragma omp parallel for 
     #endif
@@ -256,6 +283,8 @@ HyperbolicLPSolver::~HyperbolicLPSolver() {
 
     }
 cout<<"memory release end-------------------------------"<<endl;
+
+
 
 }
 
@@ -272,7 +301,7 @@ void HyperbolicLPSolver::computeSetupsForNextIteration() {
 	if(m_iPeriodicBoundary) generatePeriodicBoundaryByMirrorParticles();
 	if(m_iSolidBoundary || m_iPeriodicBoundary) 
 	{
-                m_fBoundaryTime+=omp_get_wtime() - startTime;
+        m_fBoundaryTime+=omp_get_wtime() - startTime;
 //		printf("Create boundary particles takes %.16g seconds\n", omp_get_wtime() - startTime);
 	}
 //Octree: build octree and use it to search neighbours
@@ -343,9 +372,8 @@ for(int phase=0; phase<m_iNumPhase; ) {
 	cout<<"upwind phase="<<phase<<endl;
 
 	phase_success = solve_upwind(phase);
-	
-	if(!phase_success) {
-		phase=0;
+       	if(!phase_success) {
+		phase = 0;
 		//numParNotUpdate++;
 		cout<<"GO BACK TO PHASE 0!!!!!!!"<<endl;
 		continue;
@@ -357,7 +385,7 @@ for(int phase=0; phase<m_iNumPhase; ) {
 
 	phase++;
 }
-
+assert(false);
 //Solver: Lax-Wendroff scheme
 if(m_iLPFOrder==2)
 	phase_success = solve_laxwendroff();
@@ -3210,19 +3238,19 @@ const int dir = m_vDirSplitTable[m_iDirSplitOrder][phase];
 // set neighbour list pointers by dir (dir=0->right/left, dir=1->north/south, dir=2->up/down)
 const int *neiList0=nullptr, *neiList1=nullptr;
 const int *neiListSize0=nullptr, *neiListSize1=nullptr;
-setNeighbourListPointers(dir, &neiList0, &neiList1, &neiListSize0, &neiListSize1);
+setNeighbourListPointers_gpu(dir, &neiList0, &neiList1, &neiListSize0, &neiListSize1);
 // input data pointers
 const double *inVelocity=nullptr, *inPressure=nullptr, *inVolume=nullptr, *inSoundSpeed=nullptr;
 // output data pointers
 double *outVelocity=nullptr, *outPressure=nullptr, *outVolume=nullptr, *outSoundSpeed=nullptr;
 // set data pointers by phase (for temp1 or temp2) and dir(for velocity U or V) 
-setInAndOutDataPointers(phase,dir,&inVelocity,&inPressure,&inVolume,&inSoundSpeed,
+setInAndOutDataPointers_gpu(phase,dir,&inVelocity,&inPressure,&inVolume,&inSoundSpeed,
 						&outVelocity,&outPressure,&outVolume,&outSoundSpeed);
 // set local polynomail order pointers
 // dir==0->right(0) & left(1), dir==1->north(0) & south(1), dir==2->up(0) & down(1)
 int *LPFOrder0=nullptr, *LPFOrder1=nullptr;
 vector<int*> LPFOrderOther;
-setLPFOrderPointers(dir,&LPFOrder0,&LPFOrder1,LPFOrderOther);
+setLPFOrderPointers_gpu(dir,&LPFOrder0,&LPFOrder1,LPFOrderOther);
 // phase_success will be false if one particle LPF order is zero in one side
 bool phaseSuccess = true;
 
@@ -3230,7 +3258,7 @@ bool phaseSuccess = true;
 
 cout<<"BOUARY NUMBLE!! "<<m_pParticleData->m_iBoundaryNum<<endl;
     cout<<"GOAST NUMBLE!! "<<m_pParticleData->m_iGhostNum<<endl;
-  /*  ofstream in;
+ /*  ofstream in;
 int totalNumOfParticle = m_pParticleData->m_iBoundaryNum + m_pParticleData->m_iGhostNum + m_pParticleData->m_iFluidNum;
     in.open("xPosition.txt",ios::trunc);
     
@@ -3334,12 +3362,8 @@ int numinone = m_pParticleData->m_iMaxNeighbourNumInOneDir;
     in3.close();
 
 
-
-
-
-
-
 */
+
 
 // gravity is only on y(1) direction 
 double gravity;
@@ -3351,106 +3375,39 @@ else if(m_iDimension==3) gravity = dir==1? m_fGravity:0; // only in z direction 
 //                         dt/4   dt/2   dt/4
 // 3D: phase:           0               1               2               3               4
 //                                dt/6    dt/6     dt/3    dt/6    dt/6
+
+//copy data from host and do the computation
+m_pParticleData->cpyFromHostToDevice();
+
+
 double realDt;
 if(m_iDimension==2) realDt = phase==1? m_fDt/2.:m_fDt/4.;
 else if(m_iDimension==3) realDt = phase==2? m_fDt/3.:m_fDt/6.;
 // set the function pointer to compute the A matrix for QR solver
-void (HyperbolicLPSolver::*computeA) (size_t, const int *, const int*, size_t, size_t,double*, double*);
+void (HyperbolicLPSolver::*computeA) (const int *, const int*, int, int, int);
 int offset; // offset is used to get results of computed spatial derivatives from QR solver
-if(m_iDimension==2) {computeA = &HyperbolicLPSolver::computeA2D; offset=2;}
-else if(m_iDimension==3) {computeA = &HyperbolicLPSolver::computeA3D; offset=3;}
+if(m_iDimension==2) {computeA = &HyperbolicLPSolver::computeA2D_cpu; offset=2;}
+else if(m_iDimension==3) {computeA = &HyperbolicLPSolver::computeA3D_cpu; offset=3;}
 // the coeff before first and second order term during time integration
 double multiplier1st, multiplier2nd;
 if(m_iDimension==2) {multiplier1st=2; multiplier2nd=m_fDt/2.;}
 else if(m_iDimension==3) {multiplier1st=3; multiplier2nd=m_fDt*3./4.;}
 // iteration start index
-size_t startIndex = m_pParticleData->m_iFluidStartIndex;
-size_t endIndex = startIndex + m_pParticleData->m_iFluidNum;
 int additional=0;
-int warningcount=0;
-//cout<<"m_pParticleData->getFluidNum() = "<<m_pParticleData->getFluidNum()<<endl;
-//cout<<"omp_get_max_threads() = "<<omp_get_max_threads()<<endl;
-//double startTime = omp_get_wtime();   
+//int numFluid = m_pParticleData->m_iFluidNum;
 
-// iterate through fluid particles
-#ifdef _OPENMP
-#pragma omp parallel for 
-#endif
-for(size_t index=startIndex; index<endIndex; index++) {
+computeSpatialDer_gpu(dir, offset, computeA, inPressure, inVelocity,
+	neiList0, neiListSize0, additional,
+	 LPFOrder0, d_vel_d_0, d_vel_dd_0,  d_p_d_0,  d_p_dd_0);
 
-	if(inSoundSpeed[index]==0 || inVolume[index]==0) {
-
-		cout<<"NOTICE!!!!!!! index="<<index<<", p="<<inPressure[index]
-		<<", vol="<<inVolume[index]<<", vel="<<inVelocity[index]
-		<<", cs="<<inSoundSpeed[index]<<endl;
-
-		outVolume[index]   = inVolume[index];
-		outPressure[index] = inPressure[index];
-		outVelocity[index] = inVelocity[index];
-		outSoundSpeed[index] = inSoundSpeed[index];
-	}
-	else {
-		LPFOrder0[index]=1;
-		LPFOrder1[index]=1;
-		bool redo = false;
-
-		// spatial derivatives (0:right/north/up; 1:left/south/down)
-                        double vel_d_0, vel_dd_0, p_d_0, p_dd_0, vel_d_1, vel_dd_1, p_d_1, p_dd_1; // output
-                        computeSpatialDer(dir, index, offset, computeA,//upwind
-                                                          inPressure, inVelocity, neiList0, neiListSize0, additional,
-                                                          LPFOrder0, &vel_d_0, &vel_dd_0, &p_d_0, &p_dd_0); // output
-                        computeSpatialDer(dir, index, offset, computeA,//upwind
-                                                          inPressure, inVelocity, neiList1, neiListSize1, additional,
-                                                          LPFOrder1, &vel_d_1, &vel_dd_1, &p_d_1, &p_dd_1); // output
-
-                        timeIntegration(realDt, multiplier1st, multiplier2nd,
-                                                        gravity, inVolume[index], inVelocity[index], inPressure[index], inSoundSpeed[index],
-                                                        vel_d_0, vel_dd_0, p_d_0, p_dd_0, vel_d_1, vel_dd_1, p_d_1, p_dd_1,
-                                                        &outVolume[index], &outVelocity[index], &outPressure[index]); // output
-			if(m_pParticleData->m_iNumberofPellet)
-			{
-				outPressure[index]+=realDt*m_pParticleData->m_vDeltaq[index]*(m_pGamma-1);
-			}
-			if(LPFOrder0[index]*LPFOrder1[index]==0 && warningcount++==0)
-			{
-				printf("Warning: order = %d %d for index = %ld, dir = %d. ",LPFOrder0[index],LPFOrder1[index],index,dir);
-				printf("Neighbourlist size = %d %d.\n", neiListSize0[index], neiListSize1[index]);
-			}
-                        if(outPressure[index]<m_fInvalidPressure) redo=true;
-                        else if(outVolume[index]!=0 && 1./outVolume[index]<m_fInvalidDensity) redo=true;
-                        else if(std::isnan(outVolume[index]) || std::isnan(outVelocity[index]) || std::isnan(outPressure[index])) {
-                                cout<<"nan value!!!"<<endl;
-                                redo=true;
-                        }
-                        else if(std::isinf(outVolume[index]) || std::isinf(outVelocity[index]) || std::isinf(outPressure[index])) {
-                                cout<<"inf value!!!"<<endl;
-                                redo=true;
-                        }
-                        if(redo) {
-                                if(LPFOrder0[index]>0) LPFOrder0[index]--;
-                                if(LPFOrder1[index]>0) LPFOrder1[index]--;
-                                if((LPFOrder0[index]==0 && LPFOrder1[index]==0)) {
-                                        outVolume[index]   = inVolume[index];
-                                        outPressure[index] = inPressure[index];
-                                        outVelocity[index] = inVelocity[index];
-                                        outSoundSpeed[index] = inSoundSpeed[index];
-                                }
-                                else {
-                                        index--;
-                                }
-                        }
-                        else {
-                                if(outVolume[index]==0)
-                                        outSoundSpeed[index] = 0;
-                                else
-                                        outSoundSpeed[index] = m_pEOS->getSoundSpeed(outPressure[index],1./outVolume[index]);
-                        }
-                }
-        }
-	if(warningcount)
-		printf("There are %d particles have zero order for direction = %d\n",warningcount,dir);
-        return phaseSuccess;
+return phaseSuccess;
 }
+
+
+
+
+
+
 
 bool HyperbolicLPSolver::solve_laxwendroff() {
         cout<<"--------------HyperbolicLPSolver::solve_laxwendroff()--------------"<<endl;
@@ -4813,6 +4770,380 @@ void HyperbolicLPSolver::updateFluidVelocity() {
 	if(m_iDimension==3)	swap(m_pParticleData->m_vTemp1VelocityW, m_pParticleData->m_vVelocityW);
 
 }
+
+void HyperbolicLPSolver::setNeighbourListPointers_gpu(int dir, // input
+	const int **neiList0, const int **neiList1, // output
+	const int **neiListSize0, const int **neiListSize1) { 
+	
+	if(dir==0) { // x
+		*neiList0 = m_pParticleData->d_m_vNeighbourListRight; 
+		*neiList1 = m_pParticleData->d_m_vNeighbourListLeft;
+		*neiListSize0 = m_pParticleData->d_m_vNeighbourListRightSize; 
+		*neiListSize1 = m_pParticleData->d_m_vNeighbourListLeftSize;
+	}
+	else if(dir==1) { // y
+		*neiList0 = m_pParticleData->d_m_vNeighbourListNorth; 
+		*neiList1 = m_pParticleData->d_m_vNeighbourListSouth;
+		*neiListSize0 = m_pParticleData->d_m_vNeighbourListNorthSize; 
+		*neiListSize1 = m_pParticleData->d_m_vNeighbourListSouthSize;
+	}
+	else if(dir==2) { // z (if m_iDimension==2, dir != 2 for sure)
+		*neiList0 = m_pParticleData->d_m_vNeighbourListUp; 
+		*neiList1 = m_pParticleData->d_m_vNeighbourListDown;
+		*neiListSize0 = m_pParticleData->d_m_vNeighbourListUpSize; 
+		*neiListSize1 = m_pParticleData->d_m_vNeighbourListDownSize;	
+	}
+	else 
+		assert(false);
+
+}
+
+
+void HyperbolicLPSolver::setInAndOutDataPointers_gpu(int phase, int dir,
+	const double** inVelocity, const double** inPressure, const double** inVolume, const double** inSoundSpeed, 
+	double** outVelocity, double** outPressure, double** outVolume, double** outSoundSpeed) {
+	
+	// assign pressure, volume, and sound_speed pointers
+	if(phase==0) { // input: original output:temp1
+		*inPressure   = m_pParticleData->d_m_vPressure;
+		*inVolume     = m_pParticleData->d_m_vVolume;
+		*inSoundSpeed = m_pParticleData->d_m_vSoundSpeed;
+		
+		*outPressure   = m_pParticleData->d_m_vTemp1Pressure;
+		*outVolume     = m_pParticleData->d_m_vTemp1Volume;
+		*outSoundSpeed = m_pParticleData->d_m_vTemp1SoundSpeed;	
+	}
+	else if(phase==1 || phase==3) { // input:temp1 output:temp2
+		*inPressure   = m_pParticleData->d_m_vTemp1Pressure;
+		*inVolume     = m_pParticleData->d_m_vTemp1Volume;
+		*inSoundSpeed = m_pParticleData->d_m_vTemp1SoundSpeed;
+		
+		*outPressure   = m_pParticleData->d_m_vTemp2Pressure;
+		*outVolume     = m_pParticleData->d_m_vTemp2Volume;
+		*outSoundSpeed = m_pParticleData->d_m_vTemp2SoundSpeed;	
+	}
+	else if(phase==2 || phase==4){ // input:temp2 output: temp1
+		*inPressure   = m_pParticleData->d_m_vTemp2Pressure;
+		*inVolume     = m_pParticleData->d_m_vTemp2Volume;
+		*inSoundSpeed = m_pParticleData->d_m_vTemp2SoundSpeed;
+		
+		*outPressure   = m_pParticleData->d_m_vTemp1Pressure;
+		*outVolume	  = m_pParticleData->d_m_vTemp1Volume;
+		*outSoundSpeed = m_pParticleData->d_m_vTemp1SoundSpeed;	
+	}	
+	else assert(false);
+	
+	// assign velocity pointers
+	if(m_iDimension==2) {
+		if(phase==0 || phase==1) { // input: original output:temp2
+			if(dir==0) {
+				*inVelocity = m_pParticleData->d_m_vVelocityU;
+				*outVelocity = m_pParticleData->d_m_vTemp2VelocityU;
+			}
+			else if(dir==1) {
+				*inVelocity = m_pParticleData->d_m_vVelocityV;
+				*outVelocity = m_pParticleData->d_m_vTemp2VelocityV;	
+			}	
+		}	
+		else if(phase==2){ // input:temp2 output: temp1
+			if(dir==0) { // u v u
+				*inVelocity = m_pParticleData->d_m_vTemp2VelocityU;
+				*outVelocity = m_pParticleData->d_m_vTemp1VelocityU;
+				// swap pointers so that temp1 will contain new info
+				swap(m_pParticleData->d_m_vTemp1VelocityV, m_pParticleData->d_m_vTemp2VelocityV);	
+			}
+			else if(dir==1) { // v u v
+				*inVelocity = m_pParticleData->d_m_vTemp2VelocityV;
+				*outVelocity = m_pParticleData->d_m_vTemp1VelocityV;
+				// swap pointers so that temp1 will contain new info
+				swap(m_pParticleData->d_m_vTemp1VelocityU, m_pParticleData->d_m_vTemp2VelocityU);
+			}		
+		}	
+		else assert(false);	
+	}
+	else if(m_iDimension==3) {
+		if(phase==0 || phase==1 || phase==2) { // input: original output:temp1
+			if(dir==0) {
+				*inVelocity = m_pParticleData->d_m_vVelocityU;
+				*outVelocity = m_pParticleData->d_m_vTemp1VelocityU;
+			}
+			else if(dir==1) {
+				*inVelocity = m_pParticleData->d_m_vVelocityV;
+				*outVelocity = m_pParticleData->d_m_vTemp1VelocityV;	
+			}
+			else if(dir==2) {
+				*inVelocity = m_pParticleData->d_m_vVelocityW;
+				*outVelocity = m_pParticleData->d_m_vTemp1VelocityW;	
+			}
+		}	
+		else if(phase==3){ // input:temp1 output: temp2
+			if(dir==0) { 
+				*inVelocity = m_pParticleData->d_m_vTemp1VelocityU;
+				*outVelocity = m_pParticleData->d_m_vTemp2VelocityU;
+				// swap pointers so that temp2 will contain new info
+				swap(m_pParticleData->d_m_vTemp1VelocityV, m_pParticleData->d_m_vTemp2VelocityV);
+				swap(m_pParticleData->d_m_vTemp1VelocityW, m_pParticleData->d_m_vTemp2VelocityW);
+			}
+			else if(dir==1) { 
+				*inVelocity = m_pParticleData->d_m_vTemp1VelocityV;
+				*outVelocity = m_pParticleData->d_m_vTemp2VelocityV;
+				// swap pointers so that temp2 will contain new info
+				swap(m_pParticleData->d_m_vTemp1VelocityU, m_pParticleData->d_m_vTemp2VelocityU);
+				swap(m_pParticleData->d_m_vTemp1VelocityW, m_pParticleData->d_m_vTemp2VelocityW);
+			}
+			else if(dir==2) { 
+				*inVelocity = m_pParticleData->d_m_vTemp1VelocityW;
+				*outVelocity = m_pParticleData->d_m_vTemp2VelocityW;
+				// swap pointers so that temp2 will contain new info
+				swap(m_pParticleData->d_m_vTemp1VelocityU, m_pParticleData->d_m_vTemp2VelocityU);
+				swap(m_pParticleData->d_m_vTemp1VelocityV, m_pParticleData->d_m_vTemp2VelocityV);
+			}
+		}
+		else if(phase==4){ // input:temp2 output: temp1
+			if(dir==0) { 
+				*inVelocity = m_pParticleData->d_m_vTemp2VelocityU;
+				*outVelocity = m_pParticleData->d_m_vTemp1VelocityU;
+				// swap pointers so that temp1 will contain new info
+				swap(m_pParticleData->d_m_vTemp1VelocityV, m_pParticleData->d_m_vTemp2VelocityV);
+				swap(m_pParticleData->d_m_vTemp1VelocityW, m_pParticleData->d_m_vTemp2VelocityW);
+			}
+			else if(dir==1) { 
+				*inVelocity = m_pParticleData->d_m_vTemp2VelocityV;
+				*outVelocity = m_pParticleData->d_m_vTemp1VelocityV;
+				// swap pointers so that temp1 will contain new info
+				swap(m_pParticleData->d_m_vTemp1VelocityU, m_pParticleData->d_m_vTemp2VelocityU);
+				swap(m_pParticleData->d_m_vTemp1VelocityW, m_pParticleData->d_m_vTemp2VelocityW);
+			}
+			else if(dir==2) { 
+				*inVelocity = m_pParticleData->d_m_vTemp2VelocityW;
+				*outVelocity = m_pParticleData->d_m_vTemp1VelocityW;
+				// swap pointers so that temp1 will contain new info
+				swap(m_pParticleData->d_m_vTemp1VelocityU, m_pParticleData->d_m_vTemp2VelocityU);
+				swap(m_pParticleData->d_m_vTemp1VelocityV, m_pParticleData->d_m_vTemp2VelocityV);
+			}
+		}
+		else assert(false);	
+	}
+
+}
+
+
+void HyperbolicLPSolver::setLPFOrderPointers_gpu(int dir, // input
+	int** LPFOrder0, int** LPFOrder1, vector<int*>& LPFOrderOther) { // output
+	
+	if(dir==0) { // x
+		*LPFOrder0 = m_pParticleData->d_m_vLPFOrderRight; // this direction
+		*LPFOrder1 = m_pParticleData->d_m_vLPFOrderLeft;
+		
+		LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderNorth); // other directions
+		LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderSouth);
+		if(m_iDimension==3) {
+			LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderUp); 
+			LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderDown);
+		}
+	}
+	else if(dir==1) { // y
+		*LPFOrder0 = m_pParticleData->d_m_vLPFOrderNorth; // this direction
+		*LPFOrder1 = m_pParticleData->d_m_vLPFOrderSouth;
+		
+		LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderRight); // other directions
+		LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderLeft);
+		if(m_iDimension==3) {
+			LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderUp); 
+			LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderDown);
+		}
+	}
+	else if(dir==2) { // z
+		*LPFOrder0 = m_pParticleData->d_m_vLPFOrderUp; // this direction
+		*LPFOrder1 = m_pParticleData->d_m_vLPFOrderDown;
+		
+		LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderRight); // other directions
+		LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderLeft);
+		LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderNorth); 
+		LPFOrderOther.push_back(m_pParticleData->d_m_vLPFOrderSouth);
+	}
+	else
+		assert(false);
+
+}
+
+void HyperbolicLPSolver::computeA2D_cpu(const int *neighbourList,const int*  LPFOrder,  int numRow,   int startIndex, int numComputingParticle) 
+{  	
+    int maxNeighbourInOne = m_pParticleData->m_iMaxNeighbourNumInOneDir;
+    const double*x = m_pParticleData->d_m_vPositionX;
+    const double*y = m_pParticleData->d_m_vPositionY;
+    dim3 blocks(128,1);
+    dim3 threads(128,1);
+    computeA2D_gpu<<<blocks,threads>>>(neighbourList, LPFOrder, numRow, x, y, startIndex, numComputingParticle, maxNeighbourInOne,
+       d_A_LS,d_distance); 
+
+          
+}
+
+void HyperbolicLPSolver::computeA3D_cpu( const int *neighbourList, 
+								    const int* LPFOrder, int numRow, int startIndex, int numComputingPrticle)
+{
+	size_t maxNeiNum = m_pParticleData->m_iMaxNeighbourNumInOneDir;
+    const double* x = m_pParticleData->d_m_vPositionX;
+    const double* y = m_pParticleData->d_m_vPositionY;
+    const double* z = m_pParticleData->d_m_vPositionZ;
+    
+    dim3 blocks(128,1);
+    dim3 threads(128,1);
+
+    computeA3D_gpu<<<blocks,threads>>>(neighbourList, LPFOrder,
+        numRow, x, y, z, startIndex, numComputingPrticle, maxNeiNum, d_A_LS, d_distance);
+
+
+}
+
+
+void HyperbolicLPSolver::computeSpatialDer_gpu(int dir, int offset,  void (HyperbolicLPSolver::*computeA) ( const int *,
+const int*, int, int, int),
+	const double* inPressure, const double* inVelocity,
+	const int *neighbourList, const int *neighbourListSize,int additional,
+	int* LPFOrder, double* vel_d, double* vel_dd, double* p_d, double* p_dd){
+    int numRow;
+    int numCol;
+    int numFluid = m_pParticleData->m_iFluidNum;
+    int numComputing = capacity;
+    int warningCount[1];  //warning count copy from device
+    
+    int startIndex = 0;
+    
+    
+    int numNeighbourInOneDir = m_pParticleData->m_iMaxNeighbourNumInOneDir;
+    if(m_iLPFOrder == 1){ 
+        
+        numRow = m_iNumRow1stOrder;
+        numCol = m_iNumCol1stOrder;
+}
+    else if(m_iLPFOrder == 2){
+        numRow = m_iNumRow2ndOrder + additional;
+        numCol = m_iNumCol2ndOrder;
+   }
+    dim3 blocks(256,1);
+    dim3 threads(256,1);
+    magma_init();
+    magma_int_t dev = 0;
+    magma_queue_t queue_qr = NULL;
+    magma_queue_create(dev,&queue_qr);
+   
+ 
+    int valueInfo[numFluid];
+   cudaMemset(d_valueAssigned, 0,sizeof(int)*numFluid );
+   cudaMemset(d_warningCount,0,sizeof(int));
+ /*  cudaMemcpy(valueInfo, d_valueAssigned, sizeof(int)*numFluid, cudaMemcpyDeviceToHost);
+   for(int i=0; i<numFluid; i++ ){
+        cout<<valueInfo[0]<<endl;
+       }
+       */
+  checkLPFOrder_gpu<<<blocks,threads>>>(neighbourListSize ,LPFOrder, vel_d, vel_dd, p_d, p_dd, d_valueAssigned,d_warningCount,numFluid, numRow); 
+   
+   while(true){
+        
+
+       if(numComputing > numFluid-startIndex)
+           numComputing = numFluid-startIndex;
+
+        
+
+      (this->*computeA)(neighbourList, LPFOrder, numRow, startIndex, numComputing);
+/*
+      for(int i=0;i<numComputing;i++){
+           cout<<"A of number: "<<i<<endl;
+            magma_dprint_gpu(6,1,A_temp[i],6,queue_qr);
+       }
+*/
+
+
+        computeB_gpu<<<blocks,threads>>>(neighbourList, numRow, inPressure, startIndex, numComputing, numNeighbourInOneDir,d_B_LS);//output
+/*       for(int i=0;i<numComputing;i++){
+           cout<<"pre B of number: "<<i<<endl;
+            magma_dprint_gpu(3,1,B_temp[i],3,queue_qr);
+       }
+   
+  */      
+        magma_dgeqrf_batched(numRow, numCol, d_A_LS, numRow, d_Tau, d_info, numComputing,queue_qr);
+        magma_queue_sync(queue_qr);  
+        computeLS_gpu<<<blocks,threads>>>(d_A_LS, d_B_LS, d_Tau, numRow, numCol, numComputing, d_result);
+  /*  for(int i=0;i<numComputing;i++){
+          cout<<"result pre  number: "<<i+startIndex<<endl;
+              magma_dprint_gpu(2,1,result_temp[i],2,queue_qr);
+    }   
+*/ 
+        assignValue_gpu<<<blocks,threads>>>(LPFOrder,d_valueAssigned, d_result, d_distance, numComputing, startIndex, dir,
+        offset, p_d, p_dd);
+
+
+        computeB_gpu<<<blocks,threads>>>(neighbourList,numRow, inVelocity, startIndex, numComputing, numNeighbourInOneDir,
+        d_B_LS);
+   /*   for(int i=0;i<numComputing;i++){
+               cout<<"vel B of number: "<<i<<endl;
+                magma_dprint_gpu(3,1,B_temp[i],3,queue_qr);
+       }
+   */
+
+        computeLS_gpu<<<blocks,threads>>>(d_A_LS, d_B_LS, d_Tau, numRow, numCol, numComputing, d_result);
+   
+
+   /* for(int i=0;i<numComputing;i++){
+           cout<<"result number: "<<i+startIndex<<endl;
+              magma_dprint_gpu(2,1,result_temp[i],2,queue_qr);
+    }   
+*/
+      
+        assignValue_gpu<<<blocks,threads>>>(LPFOrder, d_valueAssigned, d_result, d_distance, numComputing, startIndex, dir,
+        offset, vel_d, vel_dd);
+     
+
+        checkInvalid_gpu<<<blocks,threads>>>(d_valueAssigned, d_info, p_d, p_dd, vel_d, vel_dd, startIndex,
+        numComputing, d_warningCount);
+ 
+        startIndex += numComputing;
+        cout<<"startindex: "<<startIndex<<endl; 
+
+       if(startIndex == numFluid){
+           cudaMemcpy(warningCount,d_warningCount,sizeof(int),cudaMemcpyDeviceToHost);
+/*              cudaMemcpy(valueInfo, d_valueAssigned, sizeof(int)*numFluid, cudaMemcpyDeviceToHost);
+cout<<"assignvalue"<<endl;
+        for(int i=0; i<numFluid; i++ ){
+            cout<<valueInfo[i]<<endl;
+             }
+  */ 
+           if(warningCount[0] == numFluid){
+                break;}
+           else{
+                printf("There are %d particles not been assigned value!\n", numFluid-warningCount[0]);
+                startIndex = 0;
+                numComputing = capacity;
+                numRow += 1;
+                checkLPFOrder_gpu<<<blocks,threads>>>(neighbourListSize ,LPFOrder, vel_d, vel_dd, p_d, p_dd, d_valueAssigned,d_warningCount,numFluid, numRow); 
+                printf("The number of rows has been increased to %d.\n", numRow);
+            }
+        }
+    }
+   
+       
+    /*   cout<<"----------------------p_d---------------------------"<<endl;
+        magma_dprint_gpu(numFluid,1,p_d,numFluid,queue_qr);
+        cout<<"----------------------p_dd--------------------------"<<endl;
+        magma_dprint_gpu(numFluid,1,p_dd,numFluid,queue_qr);
+       cout<<"----------------------vel_d-------------------------"<<endl;
+         magma_dprint_gpu(numFluid,1,vel_d,numFluid,queue_qr);
+ 
+        cout<<"----------------------vel_dd-------------------------"<<endl;
+      magma_dprint_gpu(numFluid,1,vel_dd,numFluid,queue_qr);
+*/
+       magma_queue_destroy(queue_qr);
+
+       magma_finalize();
+
+}
+
+
+
+
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // End of HyperbolicLPSolver

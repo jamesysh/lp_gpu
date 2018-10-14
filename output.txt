@@ -1,0 +1,58 @@
+input file name: input/input_yee_2d
+output file name: output/out
+output file name: output/out_fluid
+Number of fluid particles: 226716
+Allocated storage for all particles: 880148
+-------OctreeSearcher::OctreeSearcher()-------
+m_iMaxParticleNum = 880148
+m_iMaxNeighborNum = 118
+m_iMinNeighborNum = 36
+treeDepth = 7
+----------------------------------------------
+Polytropic EOS, gamma = 1.4
+First order upwind method
+PDE density updator
+Moving particles
+-------HyperbolicLPSolver::HyperbolicLPSolver()-------
+m_iNumThreads = 24
+omp_get_num_procs() = 24
+omp_get_max_threads() = 24 (after omp_set_num_threads())
+------------------------------------------------------
+-------HyperbolicLPSolver::searchNeighbourForFluidParticle()-------
+-------END HyperbolicLPSolver::searchNeighbourForFluidParticle()-------
+-------HyperbolicLPSolver::generateSolidBoundaryByMirrorParticles()-------
+Generated 190429 solid boundary particles
+-------END HyperbolicLPSolver::generateSolidBoundaryByMirrorParticles()-------
+-------HyperbolicLPSolver::searchNeighbourForFluidParticle()-------
+-------END HyperbolicLPSolver::searchNeighbourForFluidParticle()-------
+-------HyperbolicLPSolver::setUpwindNeighbourList()-------
+-------END HyperbolicLPSolver::setUpwindNeighbourList()-------
+m_fMinParticleSpacing=0.02
+m_fMaxSoundSpeed=1.18322
+m_fMaxFluidVelocity=0.795775
+m_fMinCFL = 0.0169031
+-----------------allocate end-----------------------
+upwind phase=0
+BOUARY NUMBLE!! 190429
+GOAST NUMBLE!! 0
+startindex: 50000
+startindex: 100000
+startindex: 150000
+startindex: 200000
+startindex: 226716
+upwind phase=1
+BOUARY NUMBLE!! 190429
+GOAST NUMBLE!! 0
+startindex: 50000
+startindex: 100000
+startindex: 150000
+startindex: 200000
+startindex: 226716
+upwind phase=2
+BOUARY NUMBLE!! 190429
+GOAST NUMBLE!! 0
+startindex: 50000
+startindex: 100000
+startindex: 150000
+startindex: 200000
+startindex: 226716

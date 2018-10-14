@@ -3,13 +3,14 @@ NVCC   = nvcc
 DEBUG  = -g
 OMP    = -fopenmp
 #OMP =
+MAGMA_DIR = /gpfs/home/shyyuan/local/magma-2.4.0/lib/ 
 CUDA_DIR = /gpfs/software/cuda/9.1/toolkit/lib64
 LAPACK_DIR=/gpfs/home/shyyuan/local/lapack-3.8.0
-INCS   = -I /gpfs/home/shyyuan/local/lapack-3.8.0/include
-LIBS   = -L $(LAPACK_DIR) -L $(CUDA_DIR)
-CFLAGS = -Wall -c -std=c++11 $(DEBUG) $(OMP)
-LFLAGS = -Wall $(DEBUG) $(INCS) $(LIBS) $(OMP)
-CUFLAGS = -c $(DEBUG) $(INCS) $(LIBS) -Xlinker -lgomp -Xcompiler -fopenmp 
+INCS   = -I /gpfs/home/shyyuan/local/lapack-3.8.0/include -I /gpfs/home/shyyuan/local/magma-2.4.0/include
+LIBS   = -L $(LAPACK_DIR) -L $(CUDA_DIR) -L $(MAGMA_DIR)
+CFLAGS = -Wall -c -std=c++11 $(DEBUG) $(OMP) $(INCS) -DADD_
+LFLAGS = -Wall $(DEBUG) $(INCS) $(LIBS) $(OMP) -DADD_
+CUFLAGS = -c $(DEBUG) $(INCS) $(LIBS) -DADD_ -Xlinker -lgomp -Xcompiler -fopenmp 
 OBJS   = boundary.o boundary_solid_shocktube.o boundary_solid_shocktube3d.o boundary_solid_tpshocktube.o boundary_solid_gresho.o \
 	boundary_rayleightaylor.o boundary_rayleightaylor_periodic.o boundary_rayleightaylor3d.o boundary_kelvinhelmholtz.o \
 	boundary_dambreak.o boundary_powder_target.o boundary_powder_target_3d.o eos.o geometry.o geometry_1d.o \
@@ -20,12 +21,12 @@ OBJS   = boundary.o boundary_solid_shocktube.o boundary_solid_shocktube3d.o boun
          neighbour_searcher.o octree.o particle_data.o\
 		 particle_viewer.o registrar.o state.o state_1d.o\
 		 state_ballexp.o state_collision.o state_gresho.o state_powder_target.o state_powder_target_3d.o state_nozzle.o\
-	     state_jet.o state_shocktube.o state_pellet.o time_controller.o
+	     state_jet.o state_shocktube.o state_pellet.o time_controller.o matrix_build.o
 
 all: lp
 
 lp: $(OBJS)
-	$(CC) $(LFLAGS) $(OBJS) -o lp -lgomp -llapacke -llapack -lgfortran -lrefblas -lcudart -lcublas -lcusolver
+	$(CC) $(LFLAGS) $(OBJS) -o lp -lgomp -llapacke -llapack -lgfortran -lrefblas -lcudart -lcublas -lcusolver -lmagma
 
 boundary.o: boundary.h boundary.cpp
 	$(CC) $(CFLAGS) boundary.cpp
@@ -123,7 +124,7 @@ lp_main.o: lp_main.cpp initializer.h neighbour_searcher.h particle_data.h partic
 	$(CC) $(CFLAGS) lp_main.cpp
 
 lp_solver.o: lp_solver.h lp_solver.cu neighbour_searcher.h eos.h particle_data.h\
-           initializer.h ls_solver.h hexagonal_packing.h
+           initializer.h ls_solver.h hexagonal_packing.h matrix_build.h
 	$(NVCC) $(CUFLAGS) lp_solver.cu
 
 ls_solver.o: ls_solver.h ls_solver.cpp
@@ -179,6 +180,8 @@ time_controller.o: time_controller.h time_controller.cpp lp_solver.h particle_vi
 
 state_nozzle.o: state.h state_nozzle.h state_nozzle.cpp
 	$(CC) $(CFLAGS) state_nozzle.cpp
+matrix_build.o: matrix_build.h matrix_build.cu 
+	$(NVCC) $(CUFLAGS) matrix_build.cu
 
 clean:
 	rm *.o *~ debug log save_init_param lp -r out
