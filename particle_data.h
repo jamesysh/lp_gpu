@@ -609,7 +609,16 @@ private:
     double* d_m_vPositionX;
     double* d_m_vPositionY;
     double* d_m_vPositionZ;
-
+    double* d_vel_d_0;
+    double* d_vel_dd_0;
+    double* d_p_d_0;
+    double* d_p_dd_0;
+    
+    double* d_vel_d_1;
+    double* d_vel_dd_1;
+    double* d_p_d_1;
+    double* d_p_dd_1;
+   
 
 };
 

@@ -235,24 +235,14 @@ private:
     double** d_result;//Store the result of LS problem
     double** result_temp;
     
-    double* d_vel_d_0;
-    double* d_vel_dd_0;
-    double* d_p_d_0;
-    double* d_p_dd_0;
-    
-    double* d_vel_d_1;
-    double* d_vel_dd_1;
-    double* d_p_d_1;
-    double* d_p_dd_1;
-
-
+  
     int* d_particleOrder; //Store the order of particles in computation
     int* d_valueAssigned; //If value is assigned, it will be 0.
 
     int capacity = 50000;//copy from partical data
 
     int* d_warningCount;
-
+    int* d_info_single;
 
 	//-------------------------------------Methods-----------------------------------------
 	
@@ -581,6 +571,13 @@ const int*, int, int, int),
 	double** outVelocity, double** outPressure, double** outVolume, double** outSoundSpeed); 
     void setNeighbourListPointers_gpu(int dir, const int **neiList0, const int **neiList1, // output
 	const int **neiListSize0, const int **neiListSize1);
+
+
+void setDirOfPressureAndVelocityPointer_gpu(double**p_d_0,
+double**p_dd_0,double**p_d_1,double**p_dd_1,double**vel_d_0,double**vel_dd_0,
+double**vel_d_1,double**vel_dd_1);
+ 
+
 
 };
 #endif

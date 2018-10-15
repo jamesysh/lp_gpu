@@ -26,15 +26,7 @@ __global__ void computeLS_gpu(double**A,double**B,double**Tau, int numRow, int n
 __global__ void assignValue_gpu(const int* LPFOrder, int* valueAssigned, double** Result, const double* distance, int numComputing, int startIndex,
 int dir, int offset, double* d1st, double* d2nd);//output
 
-__global__ void timeIntegration(
-        double realDt, double multiplier1st, double multiplier2nd, int numFluid,
-        double gravity, double* inVolume, double* inVelocity, double* inPressure, double* inSoundSpeed,
-        double* vel_d_0, double* vel_dd_0, double* p_d_0, double* p_dd_0,
-        double* vel_d_1, double* vel_dd_1, double* p_d_1, double* p_dd_1,
-        double* outVolume, double* outVelocity, double* outPressure, double* info   //output
-        );
 
-__global__ void initParticleOrder(int* particleOrder, int numFluid);
 
 __global__ void checkSoundspeedAndVolume(double* inSoundSpeed, double* outSoundSpeed, double* inVolume, double* outVolume, double* inPressure,
 double* outPressure, double* inVelocity, double* outVelocity, int numFluid);
@@ -45,5 +37,13 @@ __global__ void checkLPFOrder_gpu(const int* neighboursize, int* LPFOrder, doubl
 
 __global__ void checkInvalid_gpu(int* valueAssigned, int* info, double* p_d, double* p_dd, double* vel_d, double* vel_dd, int startIndex ,int numComputing, int* warningCount);
  
+__global__ void initLPFOrder_upwind_gpu(int* LPFOrder0, int* LPFOrder1,  int numFluid);
 
+__global__ void timeIntegration_gpu( 
+        double realDt, double multiplier1st, double multiplier2nd, int numFluid,
+        double gravity,const double* inVolume,const double* inVelocity,const double* inPressure,const double* inSoundSpeed,
+        double* vel_d_0, double* vel_dd_0, double* p_d_0, double* p_dd_0,
+        double* vel_d_1, double* vel_dd_1, double* p_d_1, double* p_dd_1,
+        double* outVolume, double* outVelocity, double* outPressure, double* outSoundSpeed, int* info );
+ 
 #endif

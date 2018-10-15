@@ -229,17 +229,9 @@ HyperbolicLPSolver::HyperbolicLPSolver(const Initializer& init, ParticleData* pD
 
     cudaMemcpy(d_result, result_temp, sizeof(double*)*capacity, cudaMemcpyHostToDevice);  
    
-    cudaMalloc((void**)&d_vel_d_0,sizeof(double)*m_iCapacity);
-    cudaMalloc((void**)&d_vel_dd_0,sizeof(double)*m_iCapacity);
-    cudaMalloc((void**)&d_p_d_0,sizeof(double)*m_iCapacity);
-    cudaMalloc((void**)&d_p_dd_0,sizeof(double)*m_iCapacity);
-    
-    cudaMalloc((void**)&d_vel_d_1,sizeof(double)*m_iCapacity);
-    cudaMalloc((void**)&d_vel_dd_1,sizeof(double)*m_iCapacity);
-    cudaMalloc((void**)&d_p_d_1,sizeof(double)*m_iCapacity);
-    cudaMalloc((void**)&d_p_dd_1,sizeof(double)*m_iCapacity);
-    cudaMalloc((void**)&d_warningCount,sizeof(int));
-    
+   cudaMalloc((void**)&d_warningCount,sizeof(int));
+   
+    cudaMalloc((void**)&d_info_single,sizeof(int));
     cudaError err = cudaGetLastError();
         if(cudaSuccess != err){
             printf("Error occurs when setting up lp_solver!!! MSG: %s\n",cudaGetErrorString(err));
@@ -262,16 +254,8 @@ HyperbolicLPSolver::~HyperbolicLPSolver() {
     cudaFree(d_info);
     cudaFree(d_result);
     cudaFree(d_valueAssigned);
-    cudaFree(d_vel_d_0);
-    cudaFree(d_vel_dd_0);
-    cudaFree(d_p_d_0);
-    cudaFree(d_p_dd_0);
-    cudaFree(d_vel_d_1);
-    cudaFree(d_vel_dd_1);
-    cudaFree(d_p_d_1);
-    cudaFree(d_p_dd_1);
-
-   
+    cudaFree(d_warningCount);   
+    cudaFree(d_info_single);
     #ifdef _OPENMP
     #pragma omp parallel for 
     #endif
@@ -3232,7 +3216,7 @@ return phaseSuccess;
 
 bool HyperbolicLPSolver::solve_upwind(int phase) {
 //      cout<<"--------------HyperbolicLPSolver::solve_upwind()--------------"<<endl;
-
+int numFluid = m_pParticleData->m_iFluidNum;
 // determine dir: x(0), y(1), or z(2)
 const int dir = m_vDirSplitTable[m_iDirSplitOrder][phase];
 // set neighbour list pointers by dir (dir=0->right/left, dir=1->north/south, dir=2->up/down)
@@ -3252,117 +3236,20 @@ int *LPFOrder0=nullptr, *LPFOrder1=nullptr;
 vector<int*> LPFOrderOther;
 setLPFOrderPointers_gpu(dir,&LPFOrder0,&LPFOrder1,LPFOrderOther);
 // phase_success will be false if one particle LPF order is zero in one side
+double *p_d_0 = nullptr, *p_dd_0 = nullptr, *vel_d_0 = nullptr , *vel_dd_0 = nullptr;
+double *p_d_1 = nullptr, *p_dd_1 = nullptr, *vel_d_1 = nullptr , *vel_dd_1 = nullptr;
+setDirOfPressureAndVelocityPointer_gpu(&p_d_0, &p_dd_0, &p_d_1, &p_dd_1, &vel_d_0, &vel_dd_0, &vel_d_1, &vel_dd_1);
+
+
+
+
 bool phaseSuccess = true;
 
 
 
 cout<<"BOUARY NUMBLE!! "<<m_pParticleData->m_iBoundaryNum<<endl;
     cout<<"GOAST NUMBLE!! "<<m_pParticleData->m_iGhostNum<<endl;
- /*  ofstream in;
-int totalNumOfParticle = m_pParticleData->m_iBoundaryNum + m_pParticleData->m_iGhostNum + m_pParticleData->m_iFluidNum;
-    in.open("xPosition.txt",ios::trunc);
-    
-    for(int i=0;i<totalNumOfParticle;i++){
-    
-        in<<m_pParticleData->m_vPositionX[i]<<"\n";
 
-    }
-    in.close();
-
-    
-    in.open("yPosition.txt",ios::trunc);
-    
-    for(int i=0;i<totalNumOfParticle;i++){
-    
-        in<<m_pParticleData->m_vPositionY[i]<<"\n";
-
-    }
-    in.close();
-
-
-
-    in.open("inVelocity.txt",ios::trunc);
-    
-    for(int i=0;i<totalNumOfParticle;i++){
-
-        in<<inVelocity[i]<<"\n";
-
-    }
-    in.close();
-
-    ofstream in1;
-    in1.open("inVolume.txt",ios::trunc);
-    
-    for(int i=0;i<totalNumOfParticle;i++){
-
-        in1<<inVolume[i]<<"\n";
-
-    }
-    in1.close();
-    ofstream in2;
-    in2.open("inPressure.txt",ios::trunc);
-    
-    for(int i=0;i<totalNumOfParticle;i++){
-
-        in2<<inPressure[i]<<"\n";
-
-    }
-    in2.close();
-    ofstream in3;
-    in3.open("inSoundSpeed.txt",ios::trunc);
-    
-    for(int i=0;i<totalNumOfParticle;i++){
-
-        in<<inSoundSpeed[i]<<"\n";
-
-    }
-    in3.close();
-
-
-
-
-int cap = m_pParticleData->m_iFluidNum;
-int numinone = m_pParticleData->m_iMaxNeighbourNumInOneDir;
-   cout<<"---------capacity------"<<cap<<"-------------------"<<endl; 
-    in3.open("neighbourlist0.txt",ios::trunc);
-    
-    for(int i=0;i<cap*numinone;i++){
-
-        in3<<neiList0[i]<<"\n";
-
-    }
-    in3.close();
-
-    in3.open("neighbourlist1.txt",ios::trunc);
-    
-    for(int i=0;i<cap*numinone;i++){
-
-        in3<<neiList1[i]<<"\n";
-
-    }
-    in3.close();
-
-    in3.open("neighboursize0.txt",ios::trunc);
-    
-    for(int i=0;i<cap;i++){
-
-        in3<<neiListSize0[i]<<"\n";
-
-    }
-    in3.close();
-
-    in3.open("neighboursize1.txt",ios::trunc);
-    
-    for(int i=0;i<cap;i++){
-
-        
-        in3<<neiListSize1[i]<<"\n";
-
-    }
-    in3.close();
-
-
-*/
 
 
 // gravity is only on y(1) direction 
@@ -3395,10 +3282,33 @@ else if(m_iDimension==3) {multiplier1st=3; multiplier2nd=m_fDt*3./4.;}
 // iteration start index
 int additional=0;
 //int numFluid = m_pParticleData->m_iFluidNum;
+dim3 blocks(512,1);
+dim3 threads(512,1);
+
+initLPFOrder_upwind_gpu<<<blocks,threads>>>(LPFOrder0, LPFOrder1, numFluid);
 
 computeSpatialDer_gpu(dir, offset, computeA, inPressure, inVelocity,
 	neiList0, neiListSize0, additional,
-	 LPFOrder0, d_vel_d_0, d_vel_dd_0,  d_p_d_0,  d_p_dd_0);
+	 LPFOrder0, vel_d_0, vel_dd_0,  p_d_0,  p_dd_0);
+
+computeSpatialDer_gpu(dir, offset, computeA, inPressure, inVelocity,
+	neiList1, neiListSize1, additional,
+	 LPFOrder1, vel_d_1, vel_dd_1,  p_d_1,  p_dd_1);
+cudaMemset(d_info_single,0,sizeof(int));
+int info[1];
+timeIntegration_gpu<<<blocks,threads>>>(
+         realDt,  multiplier1st,  multiplier2nd,  numFluid,
+         gravity, inVolume, inVelocity, inPressure, inSoundSpeed,
+         vel_d_0, vel_dd_0, p_d_0, p_dd_0,
+         vel_d_1, vel_dd_1, p_d_1, p_dd_1,
+         outVolume, outVelocity, outPressure, outSoundSpeed, d_info_single);
+
+cudaMemcpy(info,d_info_single,sizeof(int),cudaMemcpyDeviceToHost);
+if(info[0] == 1){
+    printf("Wrong output data from timeintegration!\n");
+    assert(false);
+}
+
 
 return phaseSuccess;
 }
@@ -5141,6 +5051,21 @@ cout<<"assignvalue"<<endl;
 
 }
 
+
+void HyperbolicLPSolver::setDirOfPressureAndVelocityPointer_gpu(double**p_d_0,
+double**p_dd_0,double**p_d_1,double**p_dd_1,double**vel_d_0,double**vel_dd_0,
+double**vel_d_1,double**vel_dd_1){
+    *p_d_0 = m_pParticleData->d_p_d_0;
+    *p_dd_0 = m_pParticleData->d_p_dd_0;
+    *vel_d_0 = m_pParticleData->d_vel_d_0;
+    *vel_dd_0 = m_pParticleData->d_vel_dd_0;
+
+    *p_d_1 = m_pParticleData->d_p_d_1;
+    *p_dd_1 = m_pParticleData->d_p_dd_1;
+    *vel_d_1 = m_pParticleData->d_vel_d_1;
+    *vel_dd_1 = m_pParticleData->d_vel_dd_1;
+    
+    }
 
 
 

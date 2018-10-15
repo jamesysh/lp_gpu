@@ -198,55 +198,6 @@ int dir, int offset, double* d1st, double* d2nd)//output
 
 
 
-__global__ void timeIntegration(
-        double realDt, double multiplier1st, double multiplier2nd, int numFluid,
-        double gravity, double* inVolume, double* inVelocity, double* inPressure, double* inSoundSpeed,
-        double* vel_d_0, double* vel_dd_0, double* p_d_0, double* p_dd_0,
-        double* vel_d_1, double* vel_dd_1, double* p_d_1, double* p_dd_1,
-        double* outVolume, double* outVelocity, double* outPressure, double* info   //output
-        )
-{
-    
-    int tid = threadIdx.x + blockIdx.x*blockDim.x;
-    int offset = blockDim.x*gridDim.x;
-    while(tid < numFluid){
-        double K = inSoundSpeed[tid]*inSoundSpeed[tid]/inVolume[tid]/inVolume[tid];
-        //this K only works for poly and spoly eos
-        //Pt
-        double Pt1st = -0.5*inVolume[tid]*K*(vel_d_0[tid]+vel_d_1[tid]) +
-            0.5*inVolume[tid]*sqrt(K)*(p_d_0[tid]-p_d_1[tid]);
-        double Pt2nd = -inVolume[tid]*inVolume[tid]*pow(K,1.5)*(vel_dd_0[tid]-vel_dd_1[tid]) + 
-            inVolume[tid]*inVolume[tid]*K*(p_dd_0[tid]+p_dd_1[tid]);
-        double Pt = multiplier1st*Pt1st + multiplier2nd*Pt2nd;
-
-        //vt
-        double Vt = -Pt/K;
-
-        //VELt
-        double VELt1st = 0.5*inVolume[tid]*sqrt(K)*(vel_d_0[tid]-vel_d_1[tid]) - 
-            0.5*inVolume[tid]*(p_d_0[tid]-p_d_1[tid]);
-        double VELt2nd = inVolume[tid]*inVolume[tid]*(vel_dd_0[tid]+vel_dd_1[tid]) - 
-            inVolume[tid]*inVolume[tid]*sqrt(K)*(p_dd_0[tid]-p_dd_1[tid]);
-        double VELt = multiplier1st*VELt1st + multiplier2nd*VELt2nd;
-
-
-        outVolume[tid] = inVolume[tid] + realDt*Vt;
-        outPressure[tid] = inPressure[tid] + realDt*Pt;
-        outVelocity[tid] = inVelocity[tid] + realDt*(VELt+gravity);
-
-        if( isnan(outVolume[tid]) || isinf(outVolume[tid]) ||
-            isnan(outPressure[tid]) || isinf(outPressure[tid]) ||
-            isnan(outVelocity[tid]) || isinf(outVelocity[tid])
-          )
-            *info = 1;
-        
-        tid += offset;
-    }
-
-
-
-}
-
 __global__ void checkSoundspeedAndVolume(double* inSoundSpeed, double* outSoundSpeed, double* inVolume, double* outVolume, double* inPressure,
 double* outPressure, double* inVelocity, double* outVelocity, int numFluid){
     
@@ -342,7 +293,96 @@ vel_dd,int startIndex ,int numComputing, int* warningCount ){
  
 }
 
+__global__ void timeIntegration_gpu( 
+        double realDt, double multiplier1st, double multiplier2nd, int numFluid,
+        double gravity,const double* inVolume,const double* inVelocity,const double* inPressure,const double* inSoundSpeed,
+        double* vel_d_0, double* vel_dd_0, double* p_d_0, double* p_dd_0,
+        double* vel_d_1, double* vel_dd_1, double* p_d_1, double* p_dd_1,
+        double* outVolume, double* outVelocity, double* outPressure, double* outSoundSpeed, int* info )
+{
+    
+    int tid = threadIdx.x + blockIdx.x*blockDim.x;
+    int offset = blockDim.x*gridDim.x;
+    while(tid < numFluid){
+        double soundspeed = inSoundSpeed[tid];
+        double velocity = inVelocity[tid];
+        double pressure = inPressure[tid];
+        double volume = inVolume[tid];
 
+
+  if(soundspeed == 0 || volume == 0  )
+        {
+            outVolume[tid] = volume;
+            outPressure[tid] = pressure;
+            outVelocity[tid] = velocity;
+            outSoundSpeed[tid] = soundspeed;
+            }
+        else{
+ 
+
+        double v_d_0_t = vel_d_0[tid];
+        double v_d_1_t = vel_d_1[tid];
+        double p_d_0_t = p_d_0[tid];
+        double p_d_1_t = p_d_1[tid];
+        double v_dd_0_t = vel_dd_0[tid];
+        double v_dd_1_t = vel_dd_1[tid];
+        double p_dd_0_t = p_dd_0[tid];
+        double p_dd_1_t = p_dd_1[tid];
+
+        double K = soundspeed*soundspeed/volume/volume;
+       //this K only works for poly and spoly eos
+        //Pt
+        double Pt1st = -0.5*volume*K*(v_d_0_t+v_d_1_t) +
+            0.5*volume*sqrt(K)*(p_d_0_t-p_d_1_t);
+             double Pt2nd = -volume*volume*pow(K,1.5)*(v_dd_0_t-v_dd_1_t) + 
+            volume*volume*K*(p_dd_0_t+p_dd_1_t);
+        double Pt = multiplier1st*Pt1st + multiplier2nd*Pt2nd;
+
+        //vt
+        double Vt = -Pt/K;
+       
+
+        //VELt
+        double VELt1st = 0.5*volume*sqrt(K)*(v_d_0_t-v_d_1_t) - 
+            0.5*volume*(p_d_0_t-p_d_1_t);
+        double VELt2nd = volume*volume*(v_dd_0_t+v_dd_1_t) - 
+            volume*volume*sqrt(K)*(p_dd_0_t-p_dd_1_t);
+        double VELt = multiplier1st*VELt1st + multiplier2nd*VELt2nd;
+
+        outVolume[tid] = volume + realDt*Vt;
+        outPressure[tid] = pressure + realDt*Pt;
+        outVelocity[tid] = velocity+ realDt*(VELt+gravity);
+}
+        if( isnan(outVolume[tid]) || isinf(outVolume[tid]) ||
+            isnan(outPressure[tid]) || isinf(outPressure[tid]) ||
+            isnan(outVelocity[tid]) || isinf(outVelocity[tid])
+          )
+          {  info[0] = 1;}
+        
+        tid += offset;
+    }
+
+
+
+}
+
+__global__ void initLPFOrder_upwind_gpu(int* LPFOrder0, int* LPFOrder1,  int numFluid){
+    
+     int tid = threadIdx.x + blockIdx.x*blockDim.x;
+     int offset = blockDim.x*gridDim.x;
+
+    while(tid < numFluid){
+        
+        LPFOrder0[tid] = 1;
+
+        LPFOrder1[tid] = 1;
+        
+        tid += offset;
+        
+        }
+    
+    
+    }
 
 
 
