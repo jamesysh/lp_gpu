@@ -3313,13 +3313,13 @@ if(m_pParticleData->m_iNumberofPellet){
 
     }
 
-
-
 cudaMemcpy(info,d_info_single,sizeof(int),cudaMemcpyDeviceToHost);
 if(info[0] == 1){
     printf("Wrong output data from timeintegration!\n");
     assert(false);
 }
+checkPressureAndDensity_gpu<<<blocks,threads>>>(outPressure, outVolume, outVelocity, outSoundSpeed, inPressure, inVelocity,
+inVolume, inSoundSpeed, m_fInvalidPressure, m_fInvalidDensity, numFluid);
 
 
 return phaseSuccess;

@@ -400,6 +400,24 @@ __global__ void updateOutPressureForPellet_gpu(const double* Deltaq, double* out
           }
       
     }
-
-
+__global__ void checkPressureAndDensity_gpu(double* outPressure, double* outVolume, double* outVelocity,
+double* outSoundSpeed, const double* inPressure, const double* inVelocity, const double* inVolume, const double*
+inSoundSpeed, int m_fInvalidPressure, int m_fInvalidDensity, int numFluid ){
+    
+      int tid = threadIdx.x + blockIdx.x*blockDim.x;
+      int offset = blockDim.x*gridDim.x;
+      while(tid < numFluid){
+           
+        if(outPressure[tid]<m_fInvalidPressure || (outVolume[tid]!=0&&1./outVolume[tid]<m_fInvalidDensity))
+            {
+                   outVolume[tid]   = inVolume[tid];
+                   outPressure[tid] = inPressure[tid];
+                   outVelocity[tid] = inVelocity[tid];
+                   outSoundSpeed[tid] = inSoundSpeed[tid];
+           printf("The particle of index %d has 0 order!\n",tid);             
+                
+                }              
+         tid += offset;
+          }
+    }
 
