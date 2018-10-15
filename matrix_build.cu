@@ -384,5 +384,22 @@ __global__ void initLPFOrder_upwind_gpu(int* LPFOrder0, int* LPFOrder1,  int num
     
     }
 
+__global__ void updateOutPressureForPellet_gpu(const double* Deltaq, double* outPressure, double realDt, int m_pGamma, int numFluid, int* info){
+      int tid = threadIdx.x + blockIdx.x*blockDim.x;
+      int offset = blockDim.x*gridDim.x;
+      while(tid < numFluid){
+          
+          outPressure[tid] += realDt*Deltaq[tid]*(m_pGamma-1);
+          
+          if(isnan(outPressure[tid]) || isinf(outPressure[tid])){
+              info[0] = 1;
+              
+              }
+
+          tid += offset; 
+          }
+      
+    }
+
 
 

@@ -45,5 +45,7 @@ __global__ void timeIntegration_gpu(
         double* vel_d_0, double* vel_dd_0, double* p_d_0, double* p_dd_0,
         double* vel_d_1, double* vel_dd_1, double* p_d_1, double* p_dd_1,
         double* outVolume, double* outVelocity, double* outPressure, double* outSoundSpeed, int* info );
- 
+
+__global__ void updateOutPressureForPellet_gpu(const double* Deltaq, double* outPressure, double realDt, int m_pGamma, int numFluid, int* info);
+
 #endif

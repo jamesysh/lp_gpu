@@ -3239,6 +3239,10 @@ setLPFOrderPointers_gpu(dir,&LPFOrder0,&LPFOrder1,LPFOrderOther);
 double *p_d_0 = nullptr, *p_dd_0 = nullptr, *vel_d_0 = nullptr , *vel_dd_0 = nullptr;
 double *p_d_1 = nullptr, *p_dd_1 = nullptr, *vel_d_1 = nullptr , *vel_dd_1 = nullptr;
 setDirOfPressureAndVelocityPointer_gpu(&p_d_0, &p_dd_0, &p_d_1, &p_dd_1, &vel_d_0, &vel_dd_0, &vel_d_1, &vel_dd_1);
+double* deltaq = nullptr;
+if(m_pParticleData->m_iNumberofPellet){
+    *&deltaq = m_pParticleData->d_deltaq;  
+    }
 
 
 
@@ -3302,6 +3306,14 @@ timeIntegration_gpu<<<blocks,threads>>>(
          vel_d_0, vel_dd_0, p_d_0, p_dd_0,
          vel_d_1, vel_dd_1, p_d_1, p_dd_1,
          outVolume, outVelocity, outPressure, outSoundSpeed, d_info_single);
+
+if(m_pParticleData->m_iNumberofPellet){
+   
+   updateOutPressureForPellet_gpu<<<blocks,threads>>>(deltaq, outPressure, realDt, m_pGamma, numFluid, d_info_single);
+
+    }
+
+
 
 cudaMemcpy(info,d_info_single,sizeof(int),cudaMemcpyDeviceToHost);
 if(info[0] == 1){
@@ -5011,7 +5023,6 @@ const int*, int, int, int),
         numComputing, d_warningCount);
  
         startIndex += numComputing;
-        cout<<"startindex: "<<startIndex<<endl; 
 
        if(startIndex == numFluid){
            cudaMemcpy(warningCount,d_warningCount,sizeof(int),cudaMemcpyDeviceToHost);

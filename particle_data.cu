@@ -332,7 +332,9 @@ ParticleData::ParticleData(Initializer& init) {
     cudaMalloc((void**)&d_vel_dd_1,sizeof(double)*m_iCapacity);
     cudaMalloc((void**)&d_p_d_1,sizeof(double)*m_iCapacity);
     cudaMalloc((void**)&d_p_dd_1,sizeof(double)*m_iCapacity);
-    
+    if(m_iNumberofPellet){
+        cudaMalloc((void**)&d_deltaq,sizeof(double)*m_iCapacity);
+    }
         if(m_iDimension == 3){
         
         cudaMalloc((void**)&d_m_vNeighbourListUp,sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir);
@@ -596,6 +598,11 @@ void ParticleData::cpyFromHostToDevice(){
     cudaMemcpy(d_m_vLPFOrderSouth, m_vLPFOrderSouth, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
     cudaMemcpy(d_m_vPositionX, m_vPositionX, sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
     cudaMemcpy(d_m_vPositionY,m_vPositionY,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+    
+    if(m_iNumberofPellet){
+        cudaMemcpy(d_deltaq,m_vDeltaq,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+        }
+    
     if(m_iDimension == 3){
     cudaMemcpy(d_m_vNeighbourListUp, m_vNeighbourListUp, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyHostToDevice);
     cudaMemcpy(d_m_vNeighbourListDown, m_vNeighbourListDown, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyHostToDevice);
@@ -632,7 +639,9 @@ void ParticleData::cpyFromDeviceToHost(){
     cudaMemcpy(m_vPositionX, d_m_vPositionX, sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
     cudaMemcpy(m_vPositionY,d_m_vPositionY,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
     
-   
+     if(m_iNumberofPellet){
+        cudaMemcpy(m_vDeltaq,d_deltaq,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+        }  
     
     if(m_iDimension == 3){
  
@@ -806,6 +815,10 @@ ParticleData::~ParticleData() {
     cudaFree(d_p_dd_1);
     cudaFree(d_vel_d_0);
     cudaFree(d_vel_dd_0);
+    if(m_iNumberofPellet){
+        cudaFree(d_deltaq);
+
+        }
 
     if(m_iDimension == 3){
         cudaFree(d_m_vNeighbourListUp);

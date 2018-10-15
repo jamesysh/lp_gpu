@@ -618,7 +618,8 @@ private:
     double* d_vel_dd_1;
     double* d_p_d_1;
     double* d_p_dd_1;
-   
+  
+    double* d_deltaq; //for pellet only
 
 };
 
