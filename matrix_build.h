@@ -50,5 +50,7 @@ __global__ void updateOutPressureForPellet_gpu(const double* Deltaq, double* out
 __global__ void checkPressureAndDensity_gpu(double* outPressure, double* outVolume, double* outVelocity,
 double* outSoundSpeed, const double* inPressure, const double* inVelocity, const double* inVolume, const double*
 inSoundSpeed, int m_fInvalidPressure, int m_fInvalidDensity, int numFluid);
+ __global__ void updateSoundSpeed_gpu(const double* outPressure,const double* outVolume, double* outSoundSpeed, double
+m_fGamma, int numFluid, int* info);
  
 #endif

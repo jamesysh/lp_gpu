@@ -345,18 +345,26 @@ for(size_t index=m_pParticleData->m_iFluidStartIndex;
 index<m_pParticleData->m_iFluidStartIndex+m_pParticleData->m_iFluidNum; index++) {
 	m_pParticleData->m_vVolumeOld[index] = m_pParticleData->m_vVolume[index];
 }
-
 double startTime;
 startTime = omp_get_wtime();
 bool phase_success;
 if(m_iFixParticles==0){
 //Solver: upwind scheme
+    magma_init();
 for(int phase=0; phase<m_iNumPhase; ) {
 
 	cout<<"upwind phase="<<phase<<endl;
+    m_pParticleData->cpyFromHostToDevice();
 
+
+double startTime1,endTime;
+startTime1 = omp_get_wtime();
 	phase_success = solve_upwind(phase);
-       	if(!phase_success) {
+    cudaDeviceSynchronize();
+endTime = omp_get_wtime();
+printf("The computation time is %.5f.\n",endTime-startTime1);
+    m_pParticleData->cpyFromDeviceToHost();
+    if(!phase_success) {
 		phase = 0;
 		//numParNotUpdate++;
 		cout<<"GO BACK TO PHASE 0!!!!!!!"<<endl;
@@ -369,7 +377,7 @@ for(int phase=0; phase<m_iNumPhase; ) {
 
 	phase++;
 }
-assert(false);
+    magma_finalize();
 //Solver: Lax-Wendroff scheme
 if(m_iLPFOrder==2)
 	phase_success = solve_laxwendroff();
@@ -3268,8 +3276,6 @@ else if(m_iDimension==3) gravity = dir==1? m_fGravity:0; // only in z direction 
 //                                dt/6    dt/6     dt/3    dt/6    dt/6
 
 //copy data from host and do the computation
-m_pParticleData->cpyFromHostToDevice();
-
 
 double realDt;
 if(m_iDimension==2) realDt = phase==1? m_fDt/2.:m_fDt/4.;
@@ -3286,8 +3292,8 @@ else if(m_iDimension==3) {multiplier1st=3; multiplier2nd=m_fDt*3./4.;}
 // iteration start index
 int additional=0;
 //int numFluid = m_pParticleData->m_iFluidNum;
-dim3 blocks(512,1);
-dim3 threads(512,1);
+int blocks = 128;
+int threads = 32;
 
 initLPFOrder_upwind_gpu<<<blocks,threads>>>(LPFOrder0, LPFOrder1, numFluid);
 
@@ -3313,15 +3319,17 @@ if(m_pParticleData->m_iNumberofPellet){
 
     }
 
-cudaMemcpy(info,d_info_single,sizeof(int),cudaMemcpyDeviceToHost);
-if(info[0] == 1){
-    printf("Wrong output data from timeintegration!\n");
-    assert(false);
-}
+
 checkPressureAndDensity_gpu<<<blocks,threads>>>(outPressure, outVolume, outVelocity, outSoundSpeed, inPressure, inVelocity,
 inVolume, inSoundSpeed, m_fInvalidPressure, m_fInvalidDensity, numFluid);
 
+updateSoundSpeed_gpu<<<blocks,threads>>>(outPressure, outVolume, outSoundSpeed, m_pGamma, numFluid, d_info_single);
 
+cudaMemcpy(info,d_info_single,sizeof(int),cudaMemcpyDeviceToHost);
+if(info[0] == 1){
+    printf("Wrong output data from timeintegration and updateSoundSpeed!\n");
+    assert(false);
+}
 return phaseSuccess;
 }
 
@@ -4944,12 +4952,8 @@ const int*, int, int, int),
         numRow = m_iNumRow2ndOrder + additional;
         numCol = m_iNumCol2ndOrder;
    }
-    dim3 blocks(256,1);
-    dim3 threads(256,1);
-    magma_init();
-    magma_int_t dev = 0;
-    magma_queue_t queue_qr = NULL;
-    magma_queue_create(dev,&queue_qr);
+    dim3 blocks(96,1);
+    dim3 threads(64,1);
    
  
     int valueInfo[numFluid];
@@ -4985,9 +4989,15 @@ const int*, int, int, int),
             magma_dprint_gpu(3,1,B_temp[i],3,queue_qr);
        }
    
-  */      
-        magma_dgeqrf_batched(numRow, numCol, d_A_LS, numRow, d_Tau, d_info, numComputing,queue_qr);
-        magma_queue_sync(queue_qr);  
+  */    int info_gpu[numComputing]; 
+    
+        cublasHandle_t handle;
+        cublasCreate(&handle);
+        
+  //  magma_dgeqrf_batched(numRow ,numCol ,A ,numRow ,Tau ,info , numFluid, queue_qr);
+        cublasDgeqrfBatched(handle, numRow, numCol, d_A_LS, numRow, d_Tau, info_gpu, numComputing); 
+      
+     //   magma_dgeqrf_batched(numRow, numCol, d_A_LS, numRow, d_Tau, d_info, numComputing,queue_qr);
         computeLS_gpu<<<blocks,threads>>>(d_A_LS, d_B_LS, d_Tau, numRow, numCol, numComputing, d_result);
   /*  for(int i=0;i<numComputing;i++){
           cout<<"result pre  number: "<<i+startIndex<<endl;
@@ -5056,9 +5066,7 @@ cout<<"assignvalue"<<endl;
         cout<<"----------------------vel_dd-------------------------"<<endl;
       magma_dprint_gpu(numFluid,1,vel_dd,numFluid,queue_qr);
 */
-       magma_queue_destroy(queue_qr);
 
-       magma_finalize();
 
 }
 

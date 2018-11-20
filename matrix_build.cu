@@ -311,7 +311,7 @@ __global__ void timeIntegration_gpu(
 
 
   if(soundspeed == 0 || volume == 0  )
-        {
+        {   printf("wrong!!!\n");
             outVolume[tid] = volume;
             outPressure[tid] = pressure;
             outVelocity[tid] = velocity;
@@ -420,4 +420,34 @@ inSoundSpeed, int m_fInvalidPressure, int m_fInvalidDensity, int numFluid ){
          tid += offset;
           }
     }
+
+__global__ void updateSoundSpeed_gpu(const double* outPressure,const double* outVolume, double* outSoundSpeed, double
+m_fGamma, int numFluid, int* info){
+    
+      int tid = threadIdx.x + blockIdx.x*blockDim.x;
+      int offset = blockDim.x*gridDim.x;
+    while(tid < numFluid){
+    
+        double cs;
+        double density = 1./outVolume[tid];
+        if(density != 0){
+            cs = m_fGamma * outPressure[tid] / density;
+            if (cs > 0)
+                outSoundSpeed[tid] = sqrt(cs);
+            else if(cs == 0)
+                outSoundSpeed[tid] = 0;
+
+            else
+               { printf("Taking sqrt of a negative cs!\n");
+                info[0] = 1;}
+            }
+        else {
+            printf("O density!!!\n");
+            info[0] = 1;}
+        
+        tid += offset;
+        }
+    
+    }
+
 

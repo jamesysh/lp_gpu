@@ -239,7 +239,7 @@ private:
     int* d_particleOrder; //Store the order of particles in computation
     int* d_valueAssigned; //If value is assigned, it will be 0.
 
-    int capacity = 50000;//copy from partical data
+    int capacity = 100000;//copy from partical data
 
     int* d_warningCount;
     int* d_info_single;

@@ -350,7 +350,7 @@ ParticleData::ParticleData(Initializer& init) {
         }
         cudaError err = cudaGetLastError();
         if(cudaSuccess != err){
-            printf("Error occurs when setting up particle data!!! MSG: %s\n",cudaGetErrorString(err));
+            printf("Error occurs when setting up particle data on GPU!!! MSG: %s\n",cudaGetErrorString(err));
             assert(false);
         }
 }
@@ -602,6 +602,25 @@ void ParticleData::cpyFromHostToDevice(){
     if(m_iNumberofPellet){
         cudaMemcpy(d_deltaq,m_vDeltaq,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
         }
+   
+    cudaMemcpy(d_m_vTemp1Pressure,m_vTemp1Pressure,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);  
+     cudaMemcpy(d_m_vTemp1Volume,m_vTemp1Volume,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);  
+     cudaMemcpy(d_m_vTemp1SoundSpeed,m_vTemp1SoundSpeed,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);  
+     cudaMemcpy(d_m_vTemp2Pressure,m_vTemp2Pressure,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);  
+     cudaMemcpy(d_m_vTemp2Volume,m_vTemp2Volume,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);  
+     cudaMemcpy(d_m_vTemp2SoundSpeed,m_vTemp2SoundSpeed,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);  
+     cudaMemcpy(d_m_vTemp1VelocityU,m_vTemp1VelocityU,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+     cudaMemcpy(d_m_vTemp1VelocityV,m_vTemp1VelocityV,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+     cudaMemcpy(d_m_vTemp2VelocityU,m_vTemp2VelocityU,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+     cudaMemcpy(d_m_vTemp2VelocityV,m_vTemp2VelocityV,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+
+
+
+
+   
+
+    
+    
     
     if(m_iDimension == 3){
     cudaMemcpy(d_m_vNeighbourListUp, m_vNeighbourListUp, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyHostToDevice);
@@ -613,7 +632,12 @@ void ParticleData::cpyFromHostToDevice(){
     cudaMemcpy(d_m_vLPFOrderDown, m_vLPFOrderDown, sizeof(int)*m_iCapacity, cudaMemcpyHostToDevice);
     cudaMemcpy(d_m_vPositionZ, m_vPositionZ, sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
 
-    
+
+     cudaMemcpy(d_m_vTemp1VelocityW,m_vTemp1VelocityW,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+     cudaMemcpy(d_m_vTemp2VelocityW,m_vTemp2VelocityW,sizeof(double)*m_iCapacity,cudaMemcpyHostToDevice);
+
+
+
     }
 }
 
@@ -638,11 +662,30 @@ void ParticleData::cpyFromDeviceToHost(){
     cudaMemcpy(m_vLPFOrderSouth, d_m_vLPFOrderSouth, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
     cudaMemcpy(m_vPositionX, d_m_vPositionX, sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
     cudaMemcpy(m_vPositionY,d_m_vPositionY,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+   
     
-     if(m_iNumberofPellet){
+    
+    cudaMemcpy(m_vTemp1Pressure,d_m_vTemp1Pressure,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);  
+     cudaMemcpy(m_vTemp1Volume,d_m_vTemp1Volume,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);  
+     cudaMemcpy(m_vTemp1SoundSpeed,d_m_vTemp1SoundSpeed,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);  
+     cudaMemcpy(m_vTemp2Pressure,d_m_vTemp2Pressure,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);  
+     cudaMemcpy(m_vTemp2Volume,d_m_vTemp2Volume,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);  
+     cudaMemcpy(m_vTemp2SoundSpeed,d_m_vTemp2SoundSpeed,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);  
+     cudaMemcpy(m_vTemp1VelocityU,d_m_vTemp1VelocityU,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+     cudaMemcpy(m_vTemp1VelocityV,d_m_vTemp1VelocityV,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+     cudaMemcpy(m_vTemp2VelocityU,d_m_vTemp2VelocityU,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+     cudaMemcpy(m_vTemp2VelocityV,d_m_vTemp2VelocityV,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+
+   
+    if(m_iNumberofPellet){
         cudaMemcpy(m_vDeltaq,d_deltaq,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
         }  
+   
+
+
     
+
+
     if(m_iDimension == 3){
  
     cudaMemcpy(m_vNeighbourListUp, d_m_vNeighbourListUp, sizeof(int)*m_iCapacity*m_iMaxNeighbourNumInOneDir, cudaMemcpyDeviceToHost);
@@ -654,7 +697,11 @@ void ParticleData::cpyFromDeviceToHost(){
     cudaMemcpy(m_vLPFOrderDown, d_m_vLPFOrderDown, sizeof(int)*m_iCapacity, cudaMemcpyDeviceToHost);
     cudaMemcpy(m_vPositionZ, d_m_vPositionZ, sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
 
-    
+ 
+     cudaMemcpy(m_vTemp1VelocityW,d_m_vTemp1VelocityW,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+     cudaMemcpy(m_vTemp2VelocityW,d_m_vTemp2VelocityW,sizeof(double)*m_iCapacity,cudaMemcpyDeviceToHost);
+
+   
     }
 }
 

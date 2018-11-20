@@ -18,7 +18,7 @@ free				type of boundary condition1
 1.4				EOS parameter: gamma
 0				EOS parameter: pinf (only meaningful for stiffened polytropic eos)
 0.				EOS parameter: einf (only meaningful for stiffened polytropic eos)
-0.02				initial particle spacing
+0.01				initial particle spacing
 0.				gravity
 0				switch to upwind method on local extremal points (1) or not(2) (only meaningful for Lax-Wendroff method with moving particles)
 0				Density estimator: 0: PDE, 1: SPH, 3: PDE with switch to SPH at discontinuity
